@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЭТМ Спец-Смета ИИ — Прототип расчёта стоимости по проекту</title>
+<style>
+  :root {
+    --bg: #0b1120;
+    --card: #111827;
+    --card2: #1e293b;
+    --border: rgba(148, 163, 184, 0.18);
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px;
+  }
+  .container { max-width: 1180px; margin: 0 auto; }
+  .header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand span { color: var(--accent); }
+  .sub { font-size: 13px; color: var(--muted); }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: var(--accent);
+  }
+  .badge.ok { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: var(--green); }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .step-num { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; }
+  .step-title { font-size: 15px; font-weight: 700; margin: 4px 0; }
+  .step-desc { font-size: 13px; color: var(--muted); }
+
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .file-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab-btn.active { background: rgba(56, 189, 248, 0.2); border-color: var(--accent); color: #fff; }
+  .run-btn {
+    padding: 11px 22px; border-radius: 10px; border: none;
+    background: linear-gradient(90deg, #0ea5e9, #10b981); color: #fff;
+    font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .run-btn:hover { opacity: 0.92; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px;
+  }
+  .stat-label { font-size: 12px; color: var(--muted); }
+  .stat-val { font-size: 24px; font-weight: 800; margin-top: 4px; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.amber { color: var(--amber); }
+  .stat-val.accent { color: var(--accent); }
+
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow-x: auto;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; background: rgba(30, 41, 59, 0.5); }
+  tr:last-child td { border-bottom: none; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .pill.match { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+  .pill.manual { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #cbd5e1; }
+  .price-cell { font-weight: 700; color: #f8fafc; white-space: nowrap; }
+  .note { margin-top: 16px; font-size: 13px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <div class="brand">ЭТМ <span>Спец-Смета ИИ</span></div>
+      <div class="sub">Интерактивный прототип расчёта стоимости материалов по проектной документации (Excel / PDF / DWG / DXF)</div>
+    </div>
+    <div class="badges">
+      <div class="badge">Python + OCR + LLM</div>
+      <div class="badge">ezdxf / CADCraft</div>
+      <div class="badge ok">ЭТМ iPRO (перс. цены с НДС)</div>
+    </div>
+  </div>
+
+  <div class="pipeline">
+    <div class="step-card">
+      <div class="step-num">Шаг 1 · Парсинг</div>
+      <div class="step-title">Excel / PDF / DWG / DXF</div>
+      <div class="step-desc">Извлечение таблиц спецификаций: наименование, производитель, артикул, ГОСТ, ед. изм., кол-во.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">Шаг 2 · Нормализация</div>
+      <div class="step-title">ИИ-разбор параметров</div>
+      <div class="step-desc">Выделение сечения, тока, IP, бренда и артикула в строгий JSON без искажения данных.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">Шаг 3 · Поиск ЭТМ</div>
+      <div class="step-title">API / Playwright iPRO</div>
+      <div class="step-desc">Авторизованный запрос персональных цен с НДС и наличия на складе ЭТМ.</div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">Шаг 4 · Контроль</div>
+      <div class="step-title">Ноль галлюцинаций</div>
+      <div class="step-desc">Если 100% совпадение характеристик не подтверждено - позиция уходит на ручную проверку без цены.</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="file-tabs">
+      <button class="tab-btn active" onclick="loadDataset('el')">Проект ЭОМ-2026.pdf (Электроснабжение)</button>
+      <button class="tab-btn" onclick="loadDataset('dwg')">Щит_ВРУ_Лист4.dwg (AutoCAD DXF)</button>
+      <button class="tab-btn" onclick="loadDataset('xls')">Спецификация_СМР.xlsx (Кабель и лотки)</button>
+    </div>
+    <button class="run-btn" onclick="exportMock()">Скачать заполненный Excel (симуляция)</button>
+  </div>
+
+  <div class="summary-grid">
+    <div class="stat">
+      <div class="stat-label">Позиций в спецификации</div>
+      <div class="stat-val" id="s-total">5</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Точное совпадение ЭТМ (100%)</div>
+      <div class="stat-val green" id="s-matched">4</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">На ручную проверку (без цены)</div>
+      <div class="stat-val amber" id="s-manual">1</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Итого подтверждено (с НДС)</div>
+      <div class="stat-val accent" id="s-sum">184 620 ₽</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Позиция по проекту</th>
+          <th>Бренд / Артикул</th>
+          <th>Кол-во</th>
+          <th>Сопоставление в ЭТМ (etm.ru)</th>
+          <th>Статус</th>
+          <th>Цена ЭТМ (с НДС)</th>
+          <th>Сумма</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="note" id="export-status">
+    Архитектура готова к подключению личного кабинета ЭТМ (API / Playwright session) и сохранению исходного форматирования Excel через openpyxl.
+  </div>
+</div>
+
+<script>
+const datasets = {
+  el: [
+    { name: "Выключатель автоматический 3P 63A C 6кА VA47-60", brand: "IEK / MVA40-3-063-C", qty: "12 шт", etm: "ЭТМ #8492014 · IEK VA47-60 3P 63А C 6кА", status: "match", price: 1180, sum: 14160 },
+    { name: "Кабель ВВГнг(А)-LS 3х2,5 ок(N,PE)-0,66", brand: "Конкорд / ГОСТ 31996", qty: "450 м", etm: "ЭТМ #4102883 · ВВГнг(А)-LS 3х2.5 (Конкорд)", status: "match", price: 142, sum: 63900 },
+    { name: "Щит распределительный навесной ЩРн-36 IP54", brand: "EKF / PROxima mb20-36-54", qty: "4 шт", etm: "ЭТМ #7731902 · EKF ЩРн-36з-1 IP54 PROxima", status: "match", price: 6890, sum: 27560 },
+    { name: "Светильник светодиодный 36Вт 4000К IP65 1200мм", brand: "Световые Технологии", qty: "25 шт", etm: "ЭТМ #5519033 · Световые Технологии ARCTIC 1200", status: "match", price: 3160, sum: 79000 },
+    { name: "Устройство защиты от импульсных перенапряжений УЗИП Тип 1+2 (не указан Iimp)", brand: "Не указан в ПД", qty: "2 шт", etm: "Найдено 3 варианта (12.5кА / 25кА) — нужен выбор", status: "manual", price: null, sum: null }
+  ],
+  dwg: [
+    { name: "Трансформатор тока ТТИ-А 250/5А 0.5S", brand: "IEK / ITT10-1-05-0250", qty: "6 шт", etm: "ЭТМ #1193840 · IEK ТТИ-А 250/5А кл.0.5S", status: "match", price: 1450, sum: 8700 },
+    { name: "Рубильник ВР32-35В71250 250А с боковой рукояткой", brand: "КЭАЗ / 106812", qty: "2 шт", etm: "ЭТМ #2209411 · КЭАЗ ВР32-35В71250 250А", status: "match", price: 7850, sum: 15700 },
+    { name: "Счётчик электроэнергии 3-фазный 5(10)А RS-485", brand: "Меркурий 234 ART-03 PBR", qty: "1 шт", etm: "ЭТМ #3391028 · Меркурий 234 ART-03 PBR", status: "match", price: 18400, sum: 18400 },
+    { name: "Шина медная перфорированная 30х5 (уточнить длину L=1000 или L=2000)", brand: "DKS / -", qty: "4 шт", etm: "Несовпадение длины в спецификации — на проверку", status: "manual", price: null, sum: null }
+  ],
+  xls: [
+    { name: "Лоток металлический перфорированный 100х50 L=3000 0.8мм", brand: "DKS / 35210", qty: "120 м", etm: "ЭТМ #9012441 · DKS S5 Combitech 100х50", status: "match", price: 890, sum: 106800 },
+    { name: "Крышка лотка 100 L=3000 0.7мм", brand: "DKS / 35510", qty: "120 м", etm: "ЭТМ #9012510 · DKS Крышка 100 L=3000", status: "match", price: 410, sum: 49200 },
+    { name: "Кабель силовой ППГнг(А)-HF 5х16", brand: "Севкабель", qty: "85 м", etm: "ЭТМ #6642190 · ППГнг(А)-HF 5х16 (Севкабель)", status: "match", price: 1240, sum: 105400 }
+  ]
+};
+
+function fmt(n) { return n.toLocaleString('ru-RU') + ' ₽'; }
+
+function loadDataset(key) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['el','dwg','xls'][i] === key);
+  });
+  const rows = datasets[key];
+  let matched = 0, manual = 0, totalSum = 0;
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    if (r.status === 'match') { matched++; totalSum += r.sum; } else { manual++; }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${r.name}</strong></td>
+      <td class="mono">${r.brand}</td>
+      <td>${r.qty}</td>
+      <td>${r.etm}</td>
+      <td><span class="pill ${r.status}">${r.status === 'match' ? '✓ Точное 100%' : '⚠ Ручная проверка'}</span></td>
+      <td class="price-cell">${r.price ? fmt(r.price) : '—'}</td>
+      <td class="price-cell">${r.sum ? fmt(r.sum) : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('s-total').textContent = rows.length;
+  document.getElementById('s-matched').textContent = matched;
+  document.getElementById('s-manual').textContent = manual;
+  document.getElementById('s-sum').textContent = fmt(totalSum);
+}
+
+function exportMock() {
+  const el = document.getElementById('export-status');
+  el.style.color = '#34d399';
+  el.textContent = '✓ В боевой системе файл .xlsx выгружается с сохранением исходных объединённых ячеек, шрифтов, формул ИТОГО и пометкой жёлтым цветом строк для ручной проверки.';
+}
+
+loadDataset('el');
+</script>
+</body>
+</html>
